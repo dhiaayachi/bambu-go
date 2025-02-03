@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dhiaayachi/bambu-go/events"
+	"github.com/dhiaayachi/bambu-go/jsonpatch"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/oklog/ulid/v2"
 	"io"
@@ -48,10 +49,11 @@ type Client struct {
 	username   string
 	token      string
 	apiUrl     string
+	print      map[string]*events.PrintReport
 }
 
 func NewBambuClient(host string, port string, token string, url string) (*Client, error) {
-	bambuClient := Client{host: host, port: port, apiUrl: url, token: token}
+	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string]*events.PrintReport)}
 
 	httpClient := &http.Client{}
 
@@ -101,22 +103,42 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 		return err
 	}
 	for _, device := range devices {
-		token := b.mqttClient.Subscribe(fmt.Sprintf("device/%s/report", device), 0, func(client mqtt.Client, message mqtt.Message) {
+
+		topic := "device/%s/report"
+
+		token := b.mqttClient.Subscribe(fmt.Sprintf(topic, device), 0, func(client mqtt.Client, message mqtt.Message) {
 			devId, err := parseDevice(message.Topic())
 			if err != nil {
 				return
 			}
-			evtType := make(map[string][]byte)
+			evtType := make(map[string]json.RawMessage)
 			err = json.Unmarshal(message.Payload(), &evtType)
 			if err != nil {
 				return
 			}
 			for k, v := range evtType {
-				evt := events.NewReportEvent(k)
-				err := json.Unmarshal(v, evt)
-				if err != nil {
-					return
+				var evt events.ReportEvent
+				switch k {
+				case events.PrintType:
+					var ok bool
+					evt, ok = b.print[message.Topic()]
+					if !ok {
+						b.print[message.Topic()] = &events.PrintReport{}
+						evt = b.print[message.Topic()]
+					}
+					err := jsonpatch.PatchValues(v, evt.(*events.PrintReport))
+					if err != nil {
+						return
+					}
+				default:
+					evt = events.NewReportEvent(k)
+					err := json.Unmarshal(v, evt)
+					if err != nil {
+						return
+					}
+
 				}
+
 				handler(devId, evt)
 			}
 
