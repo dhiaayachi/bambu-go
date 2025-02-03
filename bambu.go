@@ -121,7 +121,7 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 			}
 
 		})
-		if token.Error() != nil {
+		if token.Wait() && token.Error() != nil {
 			return token.Error()
 		}
 	}
@@ -162,12 +162,18 @@ func (b *Client) getAllDevices() ([]string, error) {
 
 func (b *Client) UnsubscribeAll() error {
 	token := b.mqttClient.Unsubscribe("dev")
-	return token.Error()
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
 }
 
 func (b *Client) Unsubscribe(devID string) error {
 	token := b.mqttClient.Unsubscribe(fmt.Sprintf("device/%s/report", devID), devID)
-	return token.Error()
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
 }
 
 func parseDevice(topic string) (string, error) {
@@ -180,6 +186,9 @@ func parseDevice(topic string) (string, error) {
 }
 
 func (b *Client) Publish(devId string, evt *events.PrintReport) error {
-	t := b.mqttClient.Publish(fmt.Sprintf("device/%s/request", devId), 0, false, evt)
-	return t.Error()
+	token := b.mqttClient.Publish(fmt.Sprintf("device/%s/request", devId), 0, false, evt)
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
 }
