@@ -1,5 +1,7 @@
 package events
 
+import "encoding/json"
+
 const UpgrateType = "upgrade"
 
 type UpgradeReport struct {
@@ -34,4 +36,9 @@ func (u *UpgradeReport) IsReportEvent() {
 
 func (u *UpgradeReport) GetType() string {
 	return UpgrateType
+}
+
+func (i *UpgradeReport) String() string {
+	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
+	return string(jsonBytes)
 }

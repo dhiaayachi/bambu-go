@@ -3,6 +3,7 @@ package events
 type ReportEvent interface {
 	GetType() string
 	IsReportEvent()
+	String() string
 }
 
 type RequestEvent interface {

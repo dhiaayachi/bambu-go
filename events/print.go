@@ -1,5 +1,7 @@
 package events
 
+import "encoding/json"
+
 const PrintType = "print"
 
 type PrintReport struct {
@@ -176,4 +178,9 @@ func (p *PrintReport) IsReportEvent() {
 func (p *PrintReport) GetType() string {
 
 	return PrintType
+}
+
+func (i *PrintReport) String() string {
+	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
+	return string(jsonBytes)
 }

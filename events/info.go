@@ -1,5 +1,7 @@
 package events
 
+import "encoding/json"
+
 const InfoType = "info"
 
 type InfoReport struct {
@@ -13,9 +15,14 @@ type InfoReport struct {
 	SequenceId string `json:"sequence_id"`
 }
 
-func (i InfoReport) IsReportEvent() {
+func (i *InfoReport) IsReportEvent() {
 }
 
-func (i InfoReport) GetType() string {
+func (i *InfoReport) GetType() string {
 	return InfoType
+}
+
+func (i *InfoReport) String() string {
+	jsonBytes, _ := json.MarshalIndent(i, "", "  ")
+	return string(jsonBytes)
 }
