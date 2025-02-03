@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dhiaayachi/bambu-go/events"
-	"github.com/dhiaayachi/bambu-go/jsonpatch"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/oklog/ulid/v2"
 	"io"
 	"net/http"
@@ -49,11 +49,11 @@ type Client struct {
 	username   string
 	token      string
 	apiUrl     string
-	print      map[string]*events.PrintReport
+	print      map[string][]byte
 }
 
 func NewBambuClient(host string, port string, token string, url string) (*Client, error) {
-	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string]*events.PrintReport)}
+	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte)}
 
 	httpClient := &http.Client{}
 
@@ -118,27 +118,26 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 			}
 			for k, v := range evtType {
 				var evt events.ReportEvent
+				var newJ []byte
 				switch k {
 				case events.PrintType:
 					var ok bool
-					evt, ok = b.print[message.Topic()]
+					oldJ, ok := b.print[message.Topic()]
 					if !ok {
-						b.print[message.Topic()] = &events.PrintReport{}
-						evt = b.print[message.Topic()]
+						b.print[message.Topic()] = []byte("{}")
 					}
-					err := jsonpatch.PatchValues(v, evt.(*events.PrintReport))
+					newJ, err = jsonpatch.MergePatch(v, oldJ)
 					if err != nil {
 						return
 					}
 				default:
-					evt = events.NewReportEvent(k)
-					err := json.Unmarshal(v, evt)
-					if err != nil {
-						return
-					}
-
+					newJ = v
 				}
-
+				evt = events.NewReportEvent(k)
+				err := json.Unmarshal(newJ, evt)
+				if err != nil {
+					return
+				}
 				handler(devId, evt)
 			}
 
