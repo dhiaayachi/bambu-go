@@ -79,12 +79,7 @@ func NewBambuClient(host string, port string, token string, url string) (*Client
 		return nil, err
 	}
 
-	uidString := fmt.Sprintf("%d", uid.Uid)
-	if uidString == "" {
-		return nil, errors.New(uidString)
-	}
-
-	bambuClient.username = fmt.Sprintf("u_%s", uid.Uid)
+	bambuClient.username = fmt.Sprintf("u_%d", uid.Uid)
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("ssl://%s:%s", bambuClient.host, bambuClient.port))
 	opts.SetClientID(ulid.Make().String())
