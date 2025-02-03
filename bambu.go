@@ -91,10 +91,15 @@ func NewBambuClient(host string, port string, token string, url string) (*Client
 	opts.SetUsername(bambuClient.username)
 	opts.SetPassword(bambuClient.token)
 	bambuClient.mqttClient = mqtt.NewClient(opts)
-	t := bambuClient.mqttClient.Connect()
-	return &bambuClient, t.Error()
+	return &bambuClient, nil
 }
-
+func (b *Client) Connect() error {
+	token := b.mqttClient.Connect()
+	if token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+	return nil
+}
 func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent)) error {
 	devices, err := b.getAllDevices()
 	if err != nil {
