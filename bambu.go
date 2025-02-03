@@ -13,6 +13,7 @@ import (
 )
 
 const preferenceUri = "/v1/design-user-service/my/preference"
+const bindUri = "/v1/iot-service/api/user/bind"
 
 type Device struct {
 	DevId          string  `json:"dev_id"`
@@ -37,6 +38,7 @@ type mqttClient interface {
 	Subscribe(topic string, qos byte, callback mqtt.MessageHandler) mqtt.Token
 	Unsubscribe(topics ...string) mqtt.Token
 	Publish(topic string, qos byte, retained bool, payload interface{}) mqtt.Token
+	Connect() mqtt.Token
 }
 
 type Client struct {
@@ -69,7 +71,7 @@ func NewBambuClient(host string, port string, token string, url string) (*Client
 	}
 
 	type u struct {
-		Uid string `json:"uid"`
+		Uid int `json:"uid"`
 	}
 	var uid u
 	err = json.Unmarshal(body, &uid)
@@ -77,8 +79,9 @@ func NewBambuClient(host string, port string, token string, url string) (*Client
 		return nil, err
 	}
 
-	if uid.Uid == "" {
-		return nil, errors.New(uid.Uid)
+	uidString := fmt.Sprintf("%d", uid.Uid)
+	if uidString == "" {
+		return nil, errors.New(uidString)
 	}
 
 	bambuClient.username = fmt.Sprintf("u_%s", uid.Uid)
@@ -88,7 +91,8 @@ func NewBambuClient(host string, port string, token string, url string) (*Client
 	opts.SetUsername(bambuClient.username)
 	opts.SetPassword(bambuClient.token)
 	bambuClient.mqttClient = mqtt.NewClient(opts)
-	return &bambuClient, nil
+	t := bambuClient.mqttClient.Connect()
+	return &bambuClient, t.Error()
 }
 
 func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent)) error {
@@ -126,7 +130,7 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 
 func (b *Client) getAllDevices() ([]string, error) {
 	httpClient := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", b.apiUrl, preferenceUri), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s%s", b.apiUrl, bindUri), nil)
 	if err != nil {
 		return nil, err
 	}
