@@ -59,21 +59,6 @@ client.SubscribeAll(func(devID string, evt events.ReportEvent) {
 })
 ```
 
-### Publishing an Event
-
-```go
-err := client.Publish("device123", &events.PrintReport{})
-if err != nil {
-	fmt.Println("Error publishing event:", err)
-}
-```
-
-### Unsubscribing
-
-```go
-client.UnsubscribeAll()
-```
-
 ## Running Tests
 
 To run the tests for this library, use:
