@@ -43,18 +43,18 @@ type mqttClient interface {
 }
 
 type Client struct {
-	mqttClient    mqttClient
-	host          string
-	port          string
-	username      string
-	token         string
-	apiUrl        string
-	print         map[string][]byte
-	subscriptions []string
+	mqttClient mqttClient
+	host       string
+	port       string
+	username   string
+	token      string
+	apiUrl     string
+	print      map[string][]byte
+	devID      []string
 }
 
 func NewBambuClient(host string, port string, token string, url string) (*Client, error) {
-	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte), subscriptions: make([]string, 0)}
+	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte), devID: make([]string, 0)}
 
 	httpClient := &http.Client{}
 
@@ -110,7 +110,7 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 		if token.Wait() && token.Error() != nil {
 			return token.Error()
 		}
-		b.subscriptions = append(b.subscriptions, topic)
+		b.devID = append(b.devID, device)
 	}
 	return nil
 }
@@ -191,7 +191,11 @@ func (b *Client) getAllDevices() ([]string, error) {
 }
 
 func (b *Client) UnsubscribeAll() error {
-	token := b.mqttClient.Unsubscribe(b.subscriptions...)
+	subscriptions := make([]string, len(b.devID))
+	for i, dev := range b.devID {
+		subscriptions[i] = fmt.Sprintf("device/%s/report", dev)
+	}
+	token := b.mqttClient.Unsubscribe(subscriptions...)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -207,6 +211,10 @@ func (b *Client) Unsubscribe(devID string) error {
 	return nil
 }
 
+func (b *Client) Devices() []string {
+	return b.devID
+}
+
 func parseDevice(topic string) (string, error) {
 	re := regexp.MustCompile("device/(.*)/report")
 	match := re.FindStringSubmatch(topic)
@@ -216,8 +224,8 @@ func parseDevice(topic string) (string, error) {
 	return match[1], nil
 }
 
-func (b *Client) Publish(devId string, evt *events.PrintReport) error {
-	token := b.mqttClient.Publish(fmt.Sprintf("device/%s/request", devId), 0, false, evt)
+func (b *Client) Publish(devId string, evt events.RequestEvent) error {
+	token := b.mqttClient.Publish(fmt.Sprintf("device/%s/request", devId), 0, false, evt.String())
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}

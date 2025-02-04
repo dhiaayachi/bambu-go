@@ -7,8 +7,8 @@ type ReportEvent interface {
 }
 
 type RequestEvent interface {
-	GetType() string
 	IsRequestEvent()
+	String() string
 }
 
 func NewReportEvent(eventType string) ReportEvent {
@@ -20,6 +20,8 @@ func NewReportEvent(eventType string) ReportEvent {
 		event = &InfoReport{}
 	case UpgrateType:
 		event = &UpgradeReport{}
+	case SystemType:
+		event = &LedCtlReport{}
 	default:
 		return nil
 	}
