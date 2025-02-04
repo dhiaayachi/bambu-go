@@ -9,6 +9,7 @@ type ReportEvent interface {
 type RequestEvent interface {
 	IsRequestEvent()
 	String() string
+	SetSeq(id uint64)
 }
 
 func NewReportEvent(eventType string) ReportEvent {

@@ -1,6 +1,9 @@
 package events
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const SystemType = "system"
 
@@ -34,6 +37,10 @@ type System struct {
 	LedOffTime   int    `json:"led_off_time"`
 	LoopTimes    int    `json:"loop_times"`
 	IntervalTime int    `json:"interval_time"`
+}
+
+func (s *LedCtlRequest) SetSeq(id uint64) {
+	s.System.SequenceId = fmt.Sprintf("%5d", id)
 }
 
 type LedCtlRequest struct {

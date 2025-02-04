@@ -11,7 +11,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"time"
+	"sync/atomic"
 )
 
 const preferenceUri = "/v1/design-user-service/my/preference"
@@ -52,6 +52,7 @@ type Client struct {
 	apiUrl     string
 	print      map[string][]byte
 	devID      []string
+	seqID      atomic.Uint64
 }
 
 func NewBambuClient(host string, port string, token string, url string) (*Client, error) {
@@ -112,12 +113,11 @@ func (b *Client) SubscribeAll(handler func(devId string, evt events.ReportEvent)
 			return token.Error()
 		}
 
-		time.Sleep(1 * time.Second)
 		// Push a pushall command to request a full update the first time
-		req := events.PushRequest{SequenceId: "99999", Command: "pushall", Version: 1, PushTarget: 1}
-		token = b.mqttClient.Publish(topic, 0, false, req.String())
-		if token.Wait() && token.Error() != nil {
-			return token.Error()
+		req := &events.PushRequest{Pushing: events.Pushing{Command: "pushall"}}
+		err := b.Publish(device, req)
+		if err != nil {
+
 		}
 		b.devID = append(b.devID, device)
 	}
@@ -151,8 +151,8 @@ func (b *Client) handlerWrapper(handler func(devId string, evt events.ReportEven
 					}
 				} else {
 					newJ = v
-					b.print[message.Topic()] = v
 				}
+				b.print[message.Topic()] = newJ
 			default:
 				newJ = v
 			}
@@ -234,6 +234,8 @@ func parseDevice(topic string) (string, error) {
 }
 
 func (b *Client) Publish(devId string, evt events.RequestEvent) error {
+	seqId := b.seqID.Add(1)
+	evt.SetSeq(seqId)
 	token := b.mqttClient.Publish(fmt.Sprintf("device/%s/request", devId), 0, false, evt.String())
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
