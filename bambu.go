@@ -43,17 +43,18 @@ type mqttClient interface {
 }
 
 type Client struct {
-	mqttClient mqttClient
-	host       string
-	port       string
-	username   string
-	token      string
-	apiUrl     string
-	print      map[string][]byte
+	mqttClient    mqttClient
+	host          string
+	port          string
+	username      string
+	token         string
+	apiUrl        string
+	print         map[string][]byte
+	subscriptions []string
 }
 
 func NewBambuClient(host string, port string, token string, url string) (*Client, error) {
-	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte)}
+	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte), subscriptions: make([]string, 0)}
 
 	httpClient := &http.Client{}
 
@@ -102,51 +103,55 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 	if err != nil {
 		return err
 	}
+
 	for _, device := range devices {
-
-		topic := "device/%s/report"
-
-		token := b.mqttClient.Subscribe(fmt.Sprintf(topic, device), 0, func(client mqtt.Client, message mqtt.Message) {
-			devId, err := parseDevice(message.Topic())
-			if err != nil {
-				return
-			}
-			evtType := make(map[string]json.RawMessage)
-			err = json.Unmarshal(message.Payload(), &evtType)
-			if err != nil {
-				return
-			}
-			for k, v := range evtType {
-				var evt events.ReportEvent
-				var newJ []byte
-				switch k {
-				case events.PrintType:
-					var ok bool
-					oldJ, ok := b.print[message.Topic()]
-					if !ok {
-						b.print[message.Topic()] = []byte("{}")
-					}
-					newJ, err = jsonpatch.MergePatch(v, oldJ)
-					if err != nil {
-						return
-					}
-				default:
-					newJ = v
-				}
-				evt = events.NewReportEvent(k)
-				err := json.Unmarshal(newJ, evt)
-				if err != nil {
-					return
-				}
-				handler(devId, evt)
-			}
-
-		})
+		topic := fmt.Sprintf("device/%s/report", device)
+		token := b.mqttClient.Subscribe(topic, 0, b.handlerWrapper(handler))
 		if token.Wait() && token.Error() != nil {
 			return token.Error()
 		}
+		b.subscriptions = append(b.subscriptions, topic)
 	}
 	return nil
+}
+
+func (b *Client) handlerWrapper(handler func(dev_id string, evt events.ReportEvent)) func(client mqtt.Client, message mqtt.Message) {
+	return func(client mqtt.Client, message mqtt.Message) {
+		devId, err := parseDevice(message.Topic())
+		if err != nil {
+			return
+		}
+		evtType := make(map[string]json.RawMessage)
+		err = json.Unmarshal(message.Payload(), &evtType)
+		if err != nil {
+			return
+		}
+		for k, v := range evtType {
+			var evt events.ReportEvent
+			var newJ []byte
+			switch k {
+			case events.PrintType:
+				var ok bool
+				oldJ, ok := b.print[message.Topic()]
+				if !ok {
+					b.print[message.Topic()] = []byte("{}")
+				}
+				newJ, err = jsonpatch.MergePatch(v, oldJ)
+				if err != nil {
+					return
+				}
+			default:
+				newJ = v
+			}
+			evt = events.NewReportEvent(k)
+			err := json.Unmarshal(newJ, evt)
+			if err != nil {
+				return
+			}
+			handler(devId, evt)
+		}
+
+	}
 }
 
 func (b *Client) getAllDevices() ([]string, error) {
@@ -182,7 +187,7 @@ func (b *Client) getAllDevices() ([]string, error) {
 }
 
 func (b *Client) UnsubscribeAll() error {
-	token := b.mqttClient.Unsubscribe("dev")
+	token := b.mqttClient.Unsubscribe(b.subscriptions...)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -190,10 +195,11 @@ func (b *Client) UnsubscribeAll() error {
 }
 
 func (b *Client) Unsubscribe(devID string) error {
-	token := b.mqttClient.Unsubscribe(fmt.Sprintf("device/%s/report", devID), devID)
+	token := b.mqttClient.Unsubscribe(devID)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	return nil
 }
 

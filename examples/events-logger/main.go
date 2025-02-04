@@ -32,5 +32,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() { _ = b.UnsubscribeAll() }()
 	time.Sleep(60 * time.Second)
 }
