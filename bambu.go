@@ -133,12 +133,16 @@ func (b *Client) handlerWrapper(handler func(dev_id string, evt events.ReportEve
 			case events.PrintType:
 				var ok bool
 				oldJ, ok := b.print[message.Topic()]
-				if !ok {
+				if ok {
 					b.print[message.Topic()] = []byte("{}")
-				}
-				newJ, err = jsonpatch.MergePatch(v, oldJ)
-				if err != nil {
-					return
+
+					newJ, err = jsonpatch.MergePatch(v, oldJ)
+					if err != nil {
+						return
+					}
+				} else {
+					newJ = v
+					b.print[message.Topic()] = v
 				}
 			default:
 				newJ = v
