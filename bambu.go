@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"time"
 )
 
 const preferenceUri = "/v1/design-user-service/my/preference"
@@ -98,7 +99,7 @@ func (b *Client) Connect() error {
 	}
 	return nil
 }
-func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent)) error {
+func (b *Client) SubscribeAll(handler func(devId string, evt events.ReportEvent)) error {
 	devices, err := b.getAllDevices()
 	if err != nil {
 		return err
@@ -110,12 +111,20 @@ func (b *Client) SubscribeAll(handler func(dev_id string, evt events.ReportEvent
 		if token.Wait() && token.Error() != nil {
 			return token.Error()
 		}
+
+		time.Sleep(1 * time.Second)
+		// Push a pushall command to request a full update the first time
+		req := events.PushRequest{SequenceId: "99999", Command: "pushall", Version: 1, PushTarget: 1}
+		token = b.mqttClient.Publish(topic, 0, false, req.String())
+		if token.Wait() && token.Error() != nil {
+			return token.Error()
+		}
 		b.devID = append(b.devID, device)
 	}
 	return nil
 }
 
-func (b *Client) handlerWrapper(handler func(dev_id string, evt events.ReportEvent)) func(client mqtt.Client, message mqtt.Message) {
+func (b *Client) handlerWrapper(handler func(devId string, evt events.ReportEvent)) func(client mqtt.Client, message mqtt.Message) {
 	return func(client mqtt.Client, message mqtt.Message) {
 		devId, err := parseDevice(message.Topic())
 		if err != nil {
@@ -131,11 +140,11 @@ func (b *Client) handlerWrapper(handler func(dev_id string, evt events.ReportEve
 			var newJ []byte
 			switch k {
 			case events.PrintType:
+				// Print type provide an incremental update
+				// This is handled by merging the event with an event cache locally
 				var ok bool
 				oldJ, ok := b.print[message.Topic()]
 				if ok {
-					b.print[message.Topic()] = []byte("{}")
-
 					newJ, err = jsonpatch.MergePatch(v, oldJ)
 					if err != nil {
 						return

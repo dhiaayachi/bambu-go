@@ -167,7 +167,7 @@ func TestSubscribeAll(t *testing.T) {
 	mockMqtt.On("Subscribe", "device/device2/report", byte(0), mock.Anything).Return(mockToken)
 
 	client := &Client{mqttClient: mockMqtt, apiUrl: server.URL, token: "test-token"}
-	handler := func(dev_id string, evt events.ReportEvent) {}
+	handler := func(devId string, evt events.ReportEvent) {}
 
 	err := client.SubscribeAll(handler)
 	assert.NoError(t, err)
@@ -180,7 +180,7 @@ func TestHandlerWrapper(t *testing.T) {
 	handlerCalled := false
 
 	var e events.ReportEvent
-	handler := func(dev_id string, evt events.ReportEvent) {
+	handler := func(devId string, evt events.ReportEvent) {
 		handlerCalled = true
 		e = evt
 	}
