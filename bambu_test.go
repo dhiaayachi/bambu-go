@@ -165,6 +165,8 @@ func TestSubscribeAll(t *testing.T) {
 
 	mockMqtt.On("Subscribe", "device/device1/report", byte(0), mock.Anything).Return(mockToken)
 	mockMqtt.On("Subscribe", "device/device2/report", byte(0), mock.Anything).Return(mockToken)
+	mockMqtt.On("Publish", "device/device1/request", byte(0), false, mock.Anything).Return(mockToken)
+	mockMqtt.On("Publish", "device/device2/request", byte(0), false, mock.Anything).Return(mockToken)
 
 	client := &Client{mqttClient: mockMqtt, apiUrl: server.URL, token: "test-token"}
 	handler := func(devId string, evt events.ReportEvent) {}
