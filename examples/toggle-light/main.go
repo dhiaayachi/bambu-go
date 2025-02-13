@@ -15,7 +15,7 @@ func main() {
 		flag.Usage()
 		log.Fatalf("missing token")
 	}
-	b, err := bambu.NewBambuClient("us.mqtt.bambulab.com", "8883", *token, "https://api.bambulab.com")
+	b, err := bambu.NewBambuClientCloud("us.mqtt.bambulab.com", "8883", *token, "https://api.bambulab.com")
 	if err != nil {
 		log.Fatal(err)
 	}

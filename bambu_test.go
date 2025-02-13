@@ -65,7 +65,7 @@ func TestNewBambuClient(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewBambuClient("localhost", "1883", "test-token", server.URL)
+	client, err := NewBambuClientCloud("localhost", "1883", "test-token", server.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "u_12345", client.username)
 }
@@ -76,7 +76,7 @@ func TestNewBambuClient_Failure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := NewBambuClient("localhost", "1883", "test-token", server.URL)
+	_, err := NewBambuClientCloud("localhost", "1883", "test-token", server.URL)
 	assert.Error(t, err)
 }
 
