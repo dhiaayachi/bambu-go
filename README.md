@@ -31,7 +31,7 @@ pass that token to the bambu-go library.
 Unfortunately, because of the 2FA limitation and the impossibility to get an access token without it, it's impossible to 
 integrate the login flow in the library for now.
 
-### Creating a Client
+### Creating a Client (Cloud)
 
 ```go
 package main
@@ -42,7 +42,28 @@ import (
 )
 
 func main() {
-	client, err := bambu.NewBambuClient("localhost", "1883", "your_token", "http://api.example.com")
+	client, err := bambu.NewBambuClientCloud("localhost", "1883", "your_token", "http://api.example.com")
+	if err != nil {
+		fmt.Println("Error creating client:", err)
+		return
+	}
+	fmt.Println("Client created successfully")
+}
+```
+
+### Creating a Client (Cloud)
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"github.com/dhiaayachi/bambu-go/bambu"
+)
+
+func main() {
+	client, err := bambu.NewBambuClientLan("192.168.2.2", "8883", "bblp", "device_token", "./ca_cert.pem")
 	if err != nil {
 		fmt.Println("Error creating client:", err)
 		return
