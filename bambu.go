@@ -53,21 +53,22 @@ const ConnectionModeCloud ConnectionMode = "cloud"
 const ConnectionModeLan ConnectionMode = "lan"
 
 type Client struct {
-	mqttClient mqttClient
-	host       string
-	port       string
-	username   string
-	token      string
-	apiUrl     string
-	print      map[string][]byte
-	devID      []string
-	seqID      atomic.Uint64
-	mode       ConnectionMode
-	cert       string
+	mqttClient   mqttClient
+	host         string
+	port         string
+	username     string
+	token        string
+	apiUrl       string
+	print        map[string][]byte
+	devID        []string
+	seqID        atomic.Uint64
+	mode         ConnectionMode
+	cert         string
+	deviceSerial string
 }
 
-func NewBambuClientLan(host string, port string, user string, password string, cert string) (*Client, error) {
-	bambuClient := Client{host: host, port: port, token: password, username: user, print: make(map[string][]byte), devID: make([]string, 0), mode: ConnectionModeLan, cert: cert}
+func NewBambuClientLan(host string, port string, user string, password string, cert string, deviceSerial string) (*Client, error) {
+	bambuClient := Client{host: host, port: port, token: password, username: user, print: make(map[string][]byte), devID: make([]string, 0), mode: ConnectionModeLan, cert: cert, deviceSerial: deviceSerial}
 
 	certpool := x509.NewCertPool()
 	cert, err := filepath.Abs(bambuClient.cert)
@@ -98,6 +99,7 @@ func NewBambuClientLan(host string, port string, user string, password string, c
 	opts.SetClientID(ulid.Make().String()).SetTLSConfig(&tlsCfg)
 	opts.SetUsername(bambuClient.username)
 	opts.SetPassword(bambuClient.token)
+	opts.SetCleanSession(true)
 	bambuClient.mqttClient = mqtt.NewClient(opts)
 	return &bambuClient, nil
 }
@@ -148,7 +150,7 @@ func (b *Client) Connect() error {
 	return nil
 }
 func (b *Client) SubscribeAll(handler func(devId string, evt events.ReportEvent)) error {
-	devices := []string{"01P00A440300877"}
+	devices := []string{b.deviceSerial}
 	var err error
 	if b.mode == ConnectionModeCloud {
 		devices, err = b.getAllDevices()
@@ -158,8 +160,8 @@ func (b *Client) SubscribeAll(handler func(devId string, evt events.ReportEvent)
 	}
 
 	for _, device := range devices {
-		//topic := fmt.Sprintf("device/%s/report", device)
-		token := b.mqttClient.Subscribe("/#", 0, b.handlerWrapper(handler))
+		topic := fmt.Sprintf("device/%s/report", device)
+		token := b.mqttClient.Subscribe(topic, 0, b.handlerWrapper(handler))
 		if token.Wait() && token.Error() != nil {
 			return token.Error()
 		}
