@@ -26,3 +26,6 @@ go.work.sum
 .env
 login-helper/login-helper
 .idea
+
+examples/events-logger/events-logger
+examples/toggle-light/toggle-light

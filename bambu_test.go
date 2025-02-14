@@ -65,7 +65,7 @@ func TestNewBambuClient(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewBambuClient("localhost", "1883", "test-token", server.URL)
+	client, err := NewBambuClientCloud("localhost", "1883", "test-token", server.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "u_12345", client.username)
 }
@@ -76,7 +76,7 @@ func TestNewBambuClient_Failure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := NewBambuClient("localhost", "1883", "test-token", server.URL)
+	_, err := NewBambuClientCloud("localhost", "1883", "test-token", server.URL)
 	assert.Error(t, err)
 }
 
@@ -152,7 +152,7 @@ func TestConnect_Failure(t *testing.T) {
 	mockMqtt.AssertExpectations(t)
 }
 
-func TestSubscribeAll(t *testing.T) {
+func TestSubscribeAllCloud(t *testing.T) {
 	mockMqtt := new(MockMqttClient)
 	mockToken := new(mqtt.DummyToken)
 
@@ -168,7 +168,23 @@ func TestSubscribeAll(t *testing.T) {
 	mockMqtt.On("Publish", "device/device1/request", byte(0), false, mock.Anything).Return(mockToken)
 	mockMqtt.On("Publish", "device/device2/request", byte(0), false, mock.Anything).Return(mockToken)
 
-	client := &Client{mqttClient: mockMqtt, apiUrl: server.URL, token: "test-token"}
+	client := &Client{mqttClient: mockMqtt, apiUrl: server.URL, token: "test-token", mode: ConnectionModeCloud}
+	handler := func(devId string, evt events.ReportEvent) {}
+
+	err := client.SubscribeAll(handler)
+	assert.NoError(t, err)
+
+	mockMqtt.AssertExpectations(t)
+}
+
+func TestSubscribeAllLan(t *testing.T) {
+	mockMqtt := new(MockMqttClient)
+	mockToken := new(mqtt.DummyToken)
+
+	mockMqtt.On("Subscribe", "device/device1/report", byte(0), mock.Anything).Return(mockToken)
+	mockMqtt.On("Publish", "device/device1/request", byte(0), false, mock.Anything).Return(mockToken)
+
+	client := &Client{mqttClient: mockMqtt, token: "test-token", mode: ConnectionModeLan, deviceSerial: "device1"}
 	handler := func(devId string, evt events.ReportEvent) {}
 
 	err := client.SubscribeAll(handler)

@@ -1,6 +1,8 @@
 package bambu
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +12,8 @@ import (
 	"github.com/oklog/ulid/v2"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sync/atomic"
 )
@@ -43,20 +47,65 @@ type mqttClient interface {
 	Connect() mqtt.Token
 }
 
+type ConnectionMode string
+
+const ConnectionModeCloud ConnectionMode = "cloud"
+const ConnectionModeLan ConnectionMode = "lan"
+
 type Client struct {
-	mqttClient mqttClient
-	host       string
-	port       string
-	username   string
-	token      string
-	apiUrl     string
-	print      map[string][]byte
-	devID      []string
-	seqID      atomic.Uint64
+	mqttClient   mqttClient
+	host         string
+	port         string
+	username     string
+	token        string
+	apiUrl       string
+	print        map[string][]byte
+	devID        []string
+	seqID        atomic.Uint64
+	mode         ConnectionMode
+	cert         string
+	deviceSerial string
 }
 
-func NewBambuClient(host string, port string, token string, url string) (*Client, error) {
-	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte), devID: make([]string, 0)}
+func NewBambuClientLan(host string, port string, user string, password string, cert string, deviceSerial string) (*Client, error) {
+	bambuClient := Client{host: host, port: port, token: password, username: user, print: make(map[string][]byte), devID: make([]string, 0), mode: ConnectionModeLan, cert: cert, deviceSerial: deviceSerial}
+
+	certpool := x509.NewCertPool()
+	cert, err := filepath.Abs(bambuClient.cert)
+	if err != nil {
+		return nil, err
+	}
+	pemCerts, err := os.ReadFile(cert)
+	if err != nil {
+		return nil, err
+	}
+	certpool.AppendCertsFromPEM(pemCerts)
+	tlsCfg := tls.Config{
+		// RootCAs = certs used to verify server cert.
+		RootCAs: certpool,
+		// ClientAuth = whether to request cert from server.
+		// Since the server is set up for SSL, this happens
+		// anyways.
+		//ClientAuth: tls.NoClientCert,
+		// ClientCAs = certs used to validate client cert.
+		ClientCAs: nil,
+		// InsecureSkipVerify = verify that cert contents
+		// match server. IP matches what is in cert etc.
+		InsecureSkipVerify: true,
+	}
+
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(fmt.Sprintf("ssl://%s:%s", bambuClient.host, bambuClient.port))
+	opts.SetClientID(ulid.Make().String()).SetTLSConfig(&tlsCfg)
+	opts.SetUsername(bambuClient.username)
+	opts.SetPassword(bambuClient.token)
+	opts.SetCleanSession(true)
+	bambuClient.mqttClient = mqtt.NewClient(opts)
+	return &bambuClient, nil
+}
+
+func NewBambuClientCloud(host string, port string, token string, url string) (*Client, error) {
+	bambuClient := Client{host: host, port: port, apiUrl: url, token: token, print: make(map[string][]byte), devID: make([]string, 0), mode: ConnectionModeCloud}
 
 	httpClient := &http.Client{}
 
@@ -101,9 +150,13 @@ func (b *Client) Connect() error {
 	return nil
 }
 func (b *Client) SubscribeAll(handler func(devId string, evt events.ReportEvent)) error {
-	devices, err := b.getAllDevices()
-	if err != nil {
-		return err
+	devices := []string{b.deviceSerial}
+	var err error
+	if b.mode == ConnectionModeCloud {
+		devices, err = b.getAllDevices()
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, device := range devices {
