@@ -84,9 +84,40 @@ client.SubscribeAll(func(devID string, evt events.ReportEvent) {
 
 To run the tests for this library, use:
 
-```sh
+```shell
 go test ./...
 ```
+
+## Running examples
+### Events Logger example
+#### Lan
+```shell
+cd examples/events-logger
+go build
+./events-logger --lan --host <Printer IP> --port 8883 --token <Access code> --cert-file ./ca_cert.pem --user bblp --serial <device serial number>
+```
+
+#### Cloud
+```shell
+cd examples/events-logger
+go build
+./events-logger --port 8883 --token AADzIu7fPZrsdhasaaUubPbKWP8E2LvF6rAPwwQhyqD....
+```
+### Togger Light example
+#### Lan
+```shell
+cd examples/events-logger
+go build
+./toggle-light --lan --host <Printer IP> --port 8883 --token <Access code> --cert-file ./ca_cert.pem --user bblp --serial <device serial number>
+```
+
+#### Cloud
+```shell
+cd examples/events-logger
+go build
+./toggle-light --port 8883 --token AADzIu7fPZrsdhasaaUubPbKWP8E2LvF6rAPwwQhyqD....
+```
+
 
 ## License
 
